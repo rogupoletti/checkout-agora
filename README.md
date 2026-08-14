@@ -18,7 +18,7 @@ npm install
 npm run dev
 ```
 
-`BITCART_API_TOKEN` é segredo de servidor e não deve receber o prefixo `NEXT_PUBLIC_`.
+`NEXTAUTH_SECRET` deve ser aleatório e secreto. `NEXTAUTH_URL` é a origem canônica do Ágora. `AGORA_ADMIN_EMAILS` recebe a lista separada por vírgulas dos primeiros administradores.
 
 ## Verificação
 
