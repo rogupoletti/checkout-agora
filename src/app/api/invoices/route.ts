@@ -76,8 +76,9 @@ export async function POST(request: NextRequest) {
     const invoice = result as Record<string, unknown>;
     const id = invoice.id as string;
     const base = new URL(process.env.BITCART_API_URL ?? "https://bitcart.docktools.com.br");
-    // Bitcart's checkout page is served from the same trusted host as its API.
-    const checkoutUrl = new URL(`/i/${encodeURIComponent(id)}`, base).toString();
+    // This Bitcart instance serves invoice checkout at /admin/i/{id}; /i/{id}
+    // is not a valid route on the deployed instance and returns 404.
+    const checkoutUrl = new URL(`/admin/i/${encodeURIComponent(id)}`, base).toString();
     recordAuditEvent({ actorId: actor.id, action: "invoices.create", outcome: "allowed", role: actor.role });
     return NextResponse.json({
       invoice: {
