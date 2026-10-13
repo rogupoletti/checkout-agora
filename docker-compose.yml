@@ -10,7 +10,7 @@ services:
     environment:
       NODE_ENV: production
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://agora.docktools.com.br}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET must come from Infisical}
+      NEXTAUTH_SECRET: ${AGORA_NEXTAUTH_SECRET:?AGORA_NEXTAUTH_SECRET must come from Infisical}
       BITCART_API_URL: ${BITCART_API_URL:-https://bitcart.docktools.com.br}
       AGORA_ADMIN_EMAILS: ${AGORA_ADMIN_EMAILS:-}
     healthcheck:

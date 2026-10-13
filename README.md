@@ -17,11 +17,11 @@ npm install
 npm run dev
 ```
 
-Configure `NEXTAUTH_SECRET` (aleatório e secreto), `NEXTAUTH_URL`, `BITCART_API_URL` (`https://bitcart.docktools.com.br`) e, opcionalmente, `AGORA_ADMIN_EMAILS` no ambiente de execução. Não grave secrets no repositório.
+Configure `AGORA_NEXTAUTH_SECRET` (32 bytes aleatórios, mantidos em segredo), `NEXTAUTH_URL`, `BITCART_API_URL` (`https://bitcart.docktools.com.br`) e, opcionalmente, `AGORA_ADMIN_EMAILS` no ambiente de execução. O Compose injeta `AGORA_NEXTAUTH_SECRET` no NextAuth como `NEXTAUTH_SECRET`. Não grave secrets no repositório.
 
 ## Docker
 
-O `docker-compose.yml` publica somente em `127.0.0.1:3010`; o acesso externo deve passar pela rota autenticada do Cloudflare Tunnel. Injete `NEXTAUTH_SECRET` pelo Infisical antes de iniciar o Compose. A imagem usa o modo standalone do Next.js e executa como usuário sem privilégios.
+O `docker-compose.yml` publica somente em `127.0.0.1:3010`; o acesso externo deve passar pela rota do Cloudflare Tunnel. Injete `AGORA_NEXTAUTH_SECRET` pelo Infisical antes de iniciar o Compose. A imagem usa o modo standalone do Next.js e executa como usuário sem privilégios.
 
 O MVP permite login com uma conta existente do Bitcart e cria uma fatura/link na loja selecionada. Criar o link é uma operação real no Bitcart; não é executada automaticamente por health checks ou testes.
 
