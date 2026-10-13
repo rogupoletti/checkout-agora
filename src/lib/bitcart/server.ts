@@ -99,6 +99,25 @@ export async function createBitcartInvoice(
   });
 }
 
+export async function createBitcartInvoiceResult(
+  token: string,
+  invoice: { price: string; store_id: string; currency: string; order_id?: string; notes?: string },
+) {
+  const response = await createBitcartInvoice(token, invoice);
+  const result: unknown = await response.json();
+  if (!result || typeof result !== "object" || typeof (result as { id?: unknown }).id !== "string") {
+    throw new Error("Unexpected Bitcart invoice response");
+  }
+  const record = result as Record<string, unknown>;
+  if (!(record.id as string).length || (record.id as string).length > 128 || !/^[A-Za-z0-9_-]+$/.test(record.id as string)) {
+    throw new Error("Unexpected Bitcart invoice ID");
+  }
+  return {
+    id: record.id as string,
+    checkoutUrl: new URL(`/admin/i/${encodeURIComponent(record.id as string)}`, apiBaseUrl()).toString(),
+  };
+}
+
 export async function bitcartRequest(
   token: string,
   path: string,
