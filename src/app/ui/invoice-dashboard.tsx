@@ -4,7 +4,6 @@ import { signOut } from "next-auth/react";
 import { FormEvent, useEffect, useState } from "react";
 
 type Store = { id: string; name: string; currency: string };
-type Invoice = { id: string; checkoutUrl: string; price: string; currency: string; status: string };
 
 export default function InvoiceDashboard({ email, role }: { email: string; role: string }) {
   const [stores, setStores] = useState<Store[]>([]);
@@ -13,7 +12,7 @@ export default function InvoiceDashboard({ email, role }: { email: string; role:
   const [currency, setCurrency] = useState("BRL");
   const [orderId, setOrderId] = useState("");
   const [notes, setNotes] = useState("");
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -34,10 +33,10 @@ export default function InvoiceDashboard({ email, role }: { email: string; role:
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setInvoice(null);
+    setCheckoutUrl("");
     setPending(true);
     try {
-      const response = await fetch("/api/invoices", {
+      const response = await fetch("/api/checkout-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ price, storeId, currency, orderId, notes }),
@@ -46,20 +45,14 @@ export default function InvoiceDashboard({ email, role }: { email: string; role:
         setError("Sua sessão expirou. Entre novamente.");
         return;
       }
-      const body = await response.json() as { invoice?: Invoice; error?: string };
-      if (!response.ok || !body.invoice) {
-        if (body.error === "outcome_unknown") {
-          setError("Não foi possível confirmar o resultado. Verifique as faturas no Bitcart antes de tentar novamente.");
-          return;
-        }
+      const body = await response.json() as { url?: string; error?: string };
+      if (!response.ok || !body.url) {
         setError("Não foi possível criar o link. Revise os dados e tente novamente.");
         return;
       }
-      setInvoice(body.invoice);
+      setCheckoutUrl(body.url);
     } catch {
-      // A transport/response failure can happen after Bitcart accepted the POST.
-      // Never invite a blind retry: the operator must reconcile in Bitcart first.
-      setError("Não foi possível confirmar o resultado. Verifique as faturas no Bitcart antes de tentar novamente.");
+      setError("Não foi possível salvar o link. Tente novamente.");
     } finally {
       setPending(false);
     }
@@ -84,7 +77,7 @@ export default function InvoiceDashboard({ email, role }: { email: string; role:
           <form className="grid gap-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8" onSubmit={submit}>
             <div>
               <h2 className="text-xl font-semibold">Criar link de pagamento</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-400">A criação gera uma fatura real na loja selecionada do Bitcart. Confira os dados antes de enviar.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">Crie um link público permanente. A fatura Bitcart só será criada quando o cliente selecionar Pagar.</p>
             </div>
             <label className="grid gap-2 text-sm">Loja
               <select className="rounded-md border border-slate-700 bg-slate-950 p-3" value={storeId} onChange={(event) => setStoreId(event.target.value)} required>
@@ -107,19 +100,18 @@ export default function InvoiceDashboard({ email, role }: { email: string; role:
             </label>
             {error ? <p role="alert" className="rounded-md border border-rose-900 bg-rose-950/50 p-3 text-sm text-rose-200">{error}</p> : null}
             <button className="rounded-md bg-emerald-400 px-4 py-3 font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50" disabled={pending || stores.length === 0} type="submit">
-              {pending ? "Criando…" : "Criar link"}
+              {pending ? "Salvando…" : "Criar link permanente"}
             </button>
           </form>
 
           <aside className="h-fit rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
             <h2 className="font-semibold">Resultado</h2>
-            {invoice ? <div className="mt-4 grid gap-3 text-sm">
-              <p>Fatura <code className="break-all text-emerald-300">{invoice.id}</code></p>
-              <p>{invoice.price} {invoice.currency} · {invoice.status}</p>
-              <a className="break-all text-emerald-300 underline" href={invoice.checkoutUrl} rel="noreferrer" target="_blank">Abrir checkout no Bitcart</a>
-              <button className="rounded-md border border-slate-700 px-3 py-2 text-left hover:bg-slate-800" onClick={() => navigator.clipboard.writeText(invoice.checkoutUrl)}>Copiar link</button>
+            {checkoutUrl ? <div className="mt-4 grid gap-3 text-sm">
+              <p>Este link não expira e pode ser reutilizado. Uma fatura só é criada após o cliente clicar em Pagar.</p>
+              <a className="break-all text-emerald-300 underline" href={checkoutUrl} rel="noreferrer" target="_blank">Abrir link público</a>
+              <button type="button" className="rounded-md border border-slate-700 px-3 py-2 text-left hover:bg-slate-800" onClick={() => navigator.clipboard.writeText(checkoutUrl)}>Copiar link público</button>
             </div> : <p className="mt-3 text-sm leading-6 text-slate-400">Depois de criar, o link seguro do checkout aparecerá aqui.</p>}
-            <p className="mt-8 border-t border-slate-800 pt-4 text-xs leading-5 text-slate-500">MVP: autenticação Bitcart, link de pagamento e sessão protegida. Sem edição de carteiras, reembolsos ou movimentação de fundos.</p>
+            <p className="mt-8 border-t border-slate-800 pt-4 text-xs leading-5 text-slate-500">Sem gestão de carteiras, reembolsos ou movimentação de fundos.</p>
           </aside>
         </div>
       </section>
