@@ -5,6 +5,11 @@ type AuditEvent = {
   action: string;
   outcome: "allowed" | "denied" | "failed";
   role?: string;
+  failureCode?:
+    | "upstream_rejected"
+    | "upstream_server_error"
+    | "creation_outcome_unknown";
+  upstreamStatus?: number;
 };
 
 /**

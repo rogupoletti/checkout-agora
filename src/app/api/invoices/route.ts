@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthenticationError, requireRole } from "@/lib/auth/server";
-import { bitcartStores, createBitcartInvoice } from "@/lib/bitcart/server";
+import { BitcartHttpError, bitcartStores, createBitcartInvoice } from "@/lib/bitcart/server";
 import { recordAuditEvent } from "@/lib/security/audit";
 import { assertSameOrigin } from "@/lib/security/csrf";
 import { checkRateLimit } from "@/lib/security/rate-limit";
@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   let actor;
+  let invoiceRequestStarted = false;
   try {
     actor = await requireRole(request, "admin", "operator");
   } catch (error) {
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "invalid_store" }, { status: 400 });
     }
 
+    invoiceRequestStarted = true;
     const response = await createBitcartInvoice(actor.bitcartAccessToken, {
       price, store_id: storeId, currency,
       ...(orderId ? { order_id: orderId } : {}),
@@ -86,8 +88,26 @@ export async function POST(request: NextRequest) {
         status: typeof invoice.status === "string" ? invoice.status : "created",
       },
     }, { status: 201 });
-  } catch {
-    recordAuditEvent({ actorId: actor.id, action: "invoices.create", outcome: "failed", role: actor.role });
-    return NextResponse.json({ error: "integration_unavailable" }, { status: 503 });
+  } catch (error) {
+    const upstreamStatus = error instanceof BitcartHttpError ? error.status : undefined;
+    const timedOut = error instanceof Error && error.name === "TimeoutError";
+    const outcomeUnknown = invoiceRequestStarted &&
+      (timedOut || upstreamStatus === undefined || upstreamStatus >= 500);
+    recordAuditEvent({
+      actorId: actor.id,
+      action: "invoices.create",
+      outcome: "failed",
+      role: actor.role,
+      ...(upstreamStatus !== undefined ? { upstreamStatus } : {}),
+      ...(outcomeUnknown
+        ? { failureCode: "creation_outcome_unknown" as const }
+        : upstreamStatus !== undefined
+          ? { failureCode: upstreamStatus >= 500 ? "upstream_server_error" as const : "upstream_rejected" as const }
+          : {}),
+    });
+    return NextResponse.json(
+      { error: outcomeUnknown ? "outcome_unknown" : "integration_unavailable" },
+      { status: outcomeUnknown ? 504 : 503 },
+    );
   }
 }

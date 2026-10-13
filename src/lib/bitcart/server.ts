@@ -6,6 +6,13 @@ const ALLOWED_BITCART_PATHS = new Set([
   "/api/invoices",
 ]);
 
+export class BitcartHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`Bitcart request failed with ${status}`);
+    this.name = "BitcartHttpError";
+  }
+}
+
 function apiBaseUrl() {
   const value = process.env.BITCART_API_URL ?? DEFAULT_BITCART_URL;
   const url = new URL(value);
@@ -109,11 +116,13 @@ export async function bitcartRequest(
       Authorization: `Bearer ${token}`,
       ...init.headers,
     },
-    signal: AbortSignal.timeout(10_000),
+    // Invoice creation can take longer than a read; keep a bounded timeout,
+    // but let the route report an ambiguous outcome rather than inviting retry.
+    signal: AbortSignal.timeout(init.method?.toUpperCase() === "POST" ? 30_000 : 10_000),
   });
 
   if (!response.ok) {
-    throw new Error(`Bitcart request failed with ${response.status}`);
+    throw new BitcartHttpError(response.status);
   }
 
   return response;

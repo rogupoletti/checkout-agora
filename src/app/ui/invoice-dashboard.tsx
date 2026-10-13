@@ -42,13 +42,24 @@ export default function InvoiceDashboard({ email, role }: { email: string; role:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ price, storeId, currency, orderId, notes }),
       });
+      if (response.status === 401) {
+        setError("Sua sessão expirou. Entre novamente.");
+        return;
+      }
       const body = await response.json() as { invoice?: Invoice; error?: string };
       if (!response.ok || !body.invoice) {
-        throw new Error(body.error === "unauthenticated" ? "Sua sessão expirou. Entre novamente." : "Não foi possível criar o link. Revise os dados e tente novamente.");
+        if (body.error === "outcome_unknown") {
+          setError("Não foi possível confirmar o resultado. Verifique as faturas no Bitcart antes de tentar novamente.");
+          return;
+        }
+        setError("Não foi possível criar o link. Revise os dados e tente novamente.");
+        return;
       }
       setInvoice(body.invoice);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Falha ao criar link.");
+    } catch {
+      // A transport/response failure can happen after Bitcart accepted the POST.
+      // Never invite a blind retry: the operator must reconcile in Bitcart first.
+      setError("Não foi possível confirmar o resultado. Verifique as faturas no Bitcart antes de tentar novamente.");
     } finally {
       setPending(false);
     }
