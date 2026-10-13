@@ -13,12 +13,17 @@ Administração segura para links de pagamento Bitcart da Parallel Society.
 ## Desenvolvimento
 
 ```bash
-cp .env.example .env.local
 npm install
 npm run dev
 ```
 
-`NEXTAUTH_SECRET` deve ser aleatório e secreto. `NEXTAUTH_URL` é a origem canônica do Ágora. `AGORA_ADMIN_EMAILS` recebe a lista separada por vírgulas dos primeiros administradores.
+Configure `NEXTAUTH_SECRET` (aleatório e secreto), `NEXTAUTH_URL`, `BITCART_API_URL` (`https://bitcart.docktools.com.br`) e, opcionalmente, `AGORA_ADMIN_EMAILS` no ambiente de execução. Não grave secrets no repositório.
+
+## Docker
+
+O `docker-compose.yml` publica somente em `127.0.0.1:3010`; o acesso externo deve passar pela rota autenticada do Cloudflare Tunnel. Injete `NEXTAUTH_SECRET` pelo Infisical antes de iniciar o Compose. A imagem usa o modo standalone do Next.js e executa como usuário sem privilégios.
+
+O MVP permite login com uma conta existente do Bitcart e cria uma fatura/link na loja selecionada. Criar o link é uma operação real no Bitcart; não é executada automaticamente por health checks ou testes.
 
 ## Verificação
 
@@ -29,6 +34,6 @@ curl http://127.0.0.1:3000/api/health
 curl -i http://127.0.0.1:3000/api/wallets
 ```
 
-O endpoint de carteiras deve devolver `401` até a sessão e o RBAC reais serem configurados.
+As rotas de lojas e faturas devem devolver `401` sem sessão; o endpoint de carteiras continua fora do MVP de PS-51.
 
 Consulte [SECURITY.md](SECURITY.md) para as fronteiras de segurança e o escopo proibido.

@@ -1,0 +1,21 @@
+services:
+  checkout-agora:
+    build:
+      context: .
+    container_name: checkout-agora-test
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:3010:3000"
+    environment:
+      NODE_ENV: production
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://agora.docktools.com.br}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET must come from Infisical}
+      BITCART_API_URL: ${BITCART_API_URL:-https://bitcart.docktools.com.br}
+      AGORA_ADMIN_EMAILS: ${AGORA_ADMIN_EMAILS:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
