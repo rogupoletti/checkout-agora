@@ -1,7 +1,17 @@
 import "server-only";
 
-const DEFAULT_BITCART_URL = "https://bitcart.sellerdock.com.br";
-const ALLOWED_BITCART_PATHS = new Set(["/api/wallets?limit=100"]);
+const DEFAULT_BITCART_URL = "https://bitcart.docktools.com.br";
+const ALLOWED_BITCART_PATHS = new Set([
+  "/api/stores?limit=100&offset=0",
+  "/api/invoices",
+]);
+
+export class BitcartHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`Bitcart request failed with ${status}`);
+    this.name = "BitcartHttpError";
+  }
+}
 
 function apiBaseUrl() {
   const value = process.env.BITCART_API_URL ?? DEFAULT_BITCART_URL;
@@ -39,7 +49,7 @@ export async function authenticateBitcart({
     body: JSON.stringify({
       email,
       password,
-      permissions: ["invoice_management", "wallet_management"],
+      permissions: ["invoice_management", "store_management"],
       strict: true,
     }),
     signal: AbortSignal.timeout(10_000),
@@ -60,6 +70,35 @@ export async function authenticateBitcart({
   };
 }
 
+export async function bitcartStores(token: string) {
+  const response = await bitcartRequest(
+    token,
+    "/api/stores?limit=100&offset=0",
+  );
+  const body: unknown = await response.json();
+  if (!body || typeof body !== "object" || !Array.isArray((body as { result?: unknown }).result)) {
+    throw new Error("Unexpected Bitcart stores response");
+  }
+
+  return (body as { result: unknown[] }).result.flatMap((value) => {
+    if (!value || typeof value !== "object") return [];
+    const store = value as Record<string, unknown>;
+    if (typeof store.id !== "string" || typeof store.name !== "string") return [];
+    return [{ id: store.id, name: store.name, currency: typeof store.default_currency === "string" ? store.default_currency : "USD" }];
+  });
+}
+
+export async function createBitcartInvoice(
+  token: string,
+  invoice: { price: string; store_id: string; currency: string; order_id?: string; notes?: string },
+) {
+  return bitcartRequest(token, "/api/invoices", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(invoice),
+  });
+}
+
 export async function bitcartRequest(
   token: string,
   path: string,
@@ -77,11 +116,13 @@ export async function bitcartRequest(
       Authorization: `Bearer ${token}`,
       ...init.headers,
     },
-    signal: AbortSignal.timeout(10_000),
+    // Invoice creation can take longer than a read; keep a bounded timeout,
+    // but let the route report an ambiguous outcome rather than inviting retry.
+    signal: AbortSignal.timeout(init.method?.toUpperCase() === "POST" ? 30_000 : 10_000),
   });
 
   if (!response.ok) {
-    throw new Error(`Bitcart request failed with ${response.status}`);
+    throw new BitcartHttpError(response.status);
   }
 
   return response;

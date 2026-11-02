@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthenticationError, requireRole } from "@/lib/auth/server";
-import { bitcartRequest } from "@/lib/bitcart/server";
 import { recordAuditEvent } from "@/lib/security/audit";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 
@@ -21,21 +20,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const actor = await requireRole(request, "admin", "auditor");
-    const response = await bitcartRequest(
-      actor.bitcartAccessToken,
-      "/api/wallets?limit=100",
-    );
-    const wallets: unknown = await response.json();
-
-    // The wallet domain is introduced in PS-36. This route deliberately
-    // exposes no raw integration response before that sanitiser exists.
     recordAuditEvent({
       actorId: actor.id,
       action: "wallets.list",
-      outcome: "allowed",
+      outcome: "denied",
       role: actor.role,
     });
-    return NextResponse.json({ wallets });
+    // Wallets are out of scope for PS-51. Never proxy Bitcart wallet payloads
+    // until PS-36 provides an explicit, reviewed domain DTO.
+    return NextResponse.json({ error: "not_available" }, { status: 501 });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       recordAuditEvent({ action: "wallets.list", outcome: "denied" });

@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { authenticateBitcart } from "@/lib/bitcart/server";
 import type { AgoraRole } from "@/lib/auth/types";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 function roleFor(email: string): AgoraRole {
   const admins = (process.env.AGORA_ADMIN_EMAILS ?? "")
@@ -24,13 +25,18 @@ export const authOptions: NextAuthOptions = {
         email: { label: "E-mail", type: "email" },
         password: { label: "Senha", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = credentials?.email?.trim().toLowerCase();
         const password = credentials?.password;
 
         if (!email || !password) {
           return null;
         }
+
+        const forwarded = request.headers?.["x-forwarded-for"];
+        const address = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(",")[0];
+        const rate = checkRateLimit(`login:${address ?? "unknown"}:${email}`, 10, 15 * 60_000);
+        if (!rate.allowed) return null;
 
         const identity = await authenticateBitcart({ email, password });
         if (!identity) {
