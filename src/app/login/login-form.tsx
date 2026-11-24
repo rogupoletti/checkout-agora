@@ -7,7 +7,7 @@ const subscribeToHydration = () => () => {};
 const getHydratedSnapshot = () => true;
 const getServerSnapshot = () => false;
 
-export default function LoginForm() {
+export default function LoginForm({ created }: { created: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const hydrated = useSyncExternalStore(
@@ -55,6 +55,7 @@ export default function LoginForm() {
             Use a conta existente do Bitcart. A senha não é armazenada pelo Ágora.
           </p>
         </div>
+        {created ? <p className="rounded-md border border-emerald-900 bg-emerald-950/40 p-3 text-sm text-emerald-200">Conta criada. Se o Bitcart pedir confirmação por e-mail, confirme-a antes de entrar.</p> : null}
         <label className="grid gap-2 text-sm">
           E-mail
           <input
@@ -92,6 +93,9 @@ export default function LoginForm() {
         >
           {pending ? "Autenticando…" : "Entrar"}
         </button>
+        <p className="text-center text-sm text-slate-400">
+          Ainda não tem conta? <a className="text-emerald-300 underline" href="/register">Criar conta</a>
+        </p>
       </form>
     </main>
   );
